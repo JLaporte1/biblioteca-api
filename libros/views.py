@@ -1,11 +1,8 @@
-from django.shortcuts import get_object_or_404
-from rest_framework import status
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
 from django.shortcuts import render
+from rest_framework import generics
 
-from .models import Libro
-from .serializers import LibroSerializer
+from .models import Libro, Resena
+from .serializers import LibroSerializer, ResenaSerializer
 
 
 def inicio(request):
@@ -13,35 +10,32 @@ def inicio(request):
     return render(request, "libros/index.html")
 
 
-@api_view(["GET", "POST"])
-def lista_libros(request):
-    """Lista libros o crea uno nuevo."""
-    if request.method == "GET":
-        libros = Libro.objects.all()
-        return Response(LibroSerializer(libros, many=True).data)
-
-    serializer = LibroSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class LibroListCreateView(generics.ListCreateAPIView):
+    """Lista libros y permite crear uno (GET, POST)."""
+    queryset = Libro.objects.all()
+    serializer_class = LibroSerializer
 
 
-@api_view(["GET", "PUT", "PATCH", "DELETE"])
-def detalle_libro(request, libro_id):
-    """Consulta, actualiza o elimina un libro por su identificador."""
-    libro = get_object_or_404(Libro, pk=libro_id)
+class LibroDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Consulta, actualiza o elimina un libro (GET, PUT, PATCH, DELETE)."""
+    queryset = Libro.objects.all()
+    serializer_class = LibroSerializer
+    lookup_url_kwarg = "libro_id"
 
-    if request.method == "GET":
-        return Response(LibroSerializer(libro).data)
-    if request.method in ["PUT", "PATCH"]:
-        serializer = LibroSerializer(
-            libro, data=request.data, partial=(request.method == "PATCH")
-        )
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    libro.delete()
-    return Response(status=status.HTTP_204_NO_CONTENT)
+class ResenaListCreateView(generics.ListCreateAPIView):
+    """Lista reseñas o crea una vinculada a un libro."""
+    serializer_class = ResenaSerializer
+
+    def get_queryset(self):
+        queryset = Resena.objects.select_related("libro").all()
+        libro_id = self.request.query_params.get("libro")
+        if libro_id:
+            queryset = queryset.filter(libro_id=libro_id)
+        return queryset
+
+
+class ResenaDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Consulta, actualiza o elimina una reseña."""
+    queryset = Resena.objects.select_related("libro").all()
+    serializer_class = ResenaSerializer
