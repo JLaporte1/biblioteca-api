@@ -1,15 +1,24 @@
 # Biblioteca API
 
-Proyecto Django REST Framework para administrar libros de una biblioteca y sus reseñas. La API incluye CRUD con ViewSets, serializers anidados, permisos y autenticación JWT.
+Este es mi proyecto para practicar Django REST Framework. Permite guardar libros y reseñas. Cada reseña pertenece a un libro y, cuando consulto un libro, también puedo ver sus reseñas.
+
+## Qué tiene
+
+- Modelo `Libro` y modelo `Resena`, relacionados con una clave foránea.
+- Serializers para los dos modelos. El de libros muestra las reseñas anidadas.
+- ViewSets para crear, consultar, editar y borrar libros y reseñas.
+- Un catálogo de solo lectura hecho con `ReadOnlyModelViewSet`.
+- Permisos: cualquiera puede consultar; para crear, editar o borrar hay que iniciar sesión con JWT.
+- Una página simple para ver y administrar los libros.
 
 ## Requisitos
 
 - Python 3.10 o superior
 - [uv](https://docs.astral.sh/uv/)
 
-## Preparar y ejecutar
+## Cómo ejecutar el proyecto
 
-Desde esta carpeta, en una terminal:
+Abrí una terminal en la carpeta del proyecto y ejecutá:
 
 ```bash
 uv sync
@@ -18,61 +27,47 @@ uv run python manage.py createsuperuser
 uv run python manage.py runserver
 ```
 
-En el primer inicio, Django genera una clave secreta local en `.django_secret`; el archivo está excluido de Git.
+Cuando crees el usuario, anotá el nombre y la contraseña: los vas a necesitar para iniciar sesión y pedir un token. La primera vez que se ejecuta Django se crea el archivo `.django_secret`. Ese archivo es privado y no se sube a GitHub.
 
-La interfaz visual queda en `http://127.0.0.1:8000/` y la API en `http://127.0.0.1:8000/api/`.
+- Página de la biblioteca: <http://127.0.0.1:8000/>
+- API de libros: <http://127.0.0.1:8000/api/libros/>
+- Catálogo de solo lectura: <http://127.0.0.1:8000/api/catalogo/>
 
-Desde la portada podés buscar, agregar, editar y borrar libros. La pantalla se conecta a los mismos endpoints de la API.
+## Rutas de la API
 
-## Endpoints
-
-| Método | Ruta | Acción |
+| Método | Ruta | Para qué sirve |
 | --- | --- | --- |
-| GET | `/api/libros/` | Listar libros con sus reseñas anidadas |
-| POST | `/api/libros/` | Crear un libro (JWT requerido) |
-| GET | `/api/libros/<id>/` | Ver un libro y sus reseñas |
-| PUT / PATCH / DELETE | `/api/libros/<id>/` | Actualizar o eliminar un libro (JWT requerido) |
-| GET | `/api/resenas/` | Listar todas las reseñas |
-| GET | `/api/resenas/?libro=<id>` | Filtrar reseñas por libro |
-| POST | `/api/resenas/` | Crear una reseña (JWT requerido) |
-| GET / PUT / PATCH / DELETE | `/api/resenas/<id>/` | Consultar, actualizar o eliminar (JWT requerido para cambios) |
-| GET | `/api/catalogo/` y `/api/catalogo/<id>/` | Catálogo de solo lectura |
-| POST | `/api/token/` | Obtener tokens de acceso y refresco |
+| GET, POST | `/api/libros/` | Ver los libros o crear uno |
+| GET, PUT, PATCH, DELETE | `/api/libros/<id>/` | Consultar, editar o borrar un libro |
+| GET, POST | `/api/resenas/` | Ver las reseñas o crear una |
+| GET, PUT, PATCH, DELETE | `/api/resenas/<id>/` | Consultar, editar o borrar una reseña |
+| GET | `/api/resenas/?libro=<id>` | Ver las reseñas de un libro |
+| GET | `/api/catalogo/` y `/api/catalogo/<id>/` | Consultar el catálogo, sin modificarlo |
+| POST | `/api/token/` | Obtener los tokens JWT |
 | POST | `/api/token/refresh/` | Renovar el token de acceso |
 
-El router está definido en `libros/routers.py`. `LibroViewSet` y `ResenaViewSet` heredan de `ModelViewSet`; `LibroCatalogoViewSet` hereda de `ReadOnlyModelViewSet`. Las lecturas son públicas; crear, editar y borrar requieren un token JWT. También está habilitada SessionAuthentication para la interfaz navegable de DRF.
+Las rutas de libros y reseñas usan `ModelViewSet`. El catálogo usa `ReadOnlyModelViewSet`. El router que conecta las rutas con los ViewSets está en `libros/routers.py`.
 
-## Probar autenticación y permisos
+## Probar con Postman
 
-1. Creá un usuario con `uv run python manage.py createsuperuser` y seguí las preguntas de la terminal.
-2. En Postman, Bruno o Thunder Client, enviá un `POST` a `http://127.0.0.1:8000/api/token/` con `Content-Type: application/json` y el usuario y contraseña:
+Primero hay que pedir un token. En Postman, hacé un `POST` a:
 
-   ```json
-   {"username": "tu_usuario", "password": "tu_contraseña"}
-   ```
+```text
+http://127.0.0.1:8000/api/token/
+```
 
-3. Copiá el valor de `access` de la respuesta. En las operaciones que modifican datos, agregá el encabezado `Authorization: Bearer TU_ACCESS_TOKEN`.
-4. Probá crear una reseña en `POST /api/resenas/`, usando un ID de libro que exista:
-
-   ```json
-   {"libro": 1, "lector": "Ana", "comentario": "Una historia que me encantó.", "puntuacion": 5}
-   ```
-
-5. Consultá `GET /api/libros/1/` para ver la reseña anidada. Probá también `PATCH` y `DELETE` sobre `/api/resenas/ID/` con el mismo encabezado.
-6. Como comprobación del permiso, intentá un `POST` sin token: debe responder `401 Unauthorized`.
-
-Ejemplo de JSON para crear un libro:
+En **Body → raw → JSON**, mandá tu usuario y contraseña:
 
 ```json
 {
-  "titulo": "El túnel",
-  "autor": "Ernesto Sabato",
-  "anio_publicacion": 1948,
-  "disponible": true
+  "username": "tu_usuario",
+  "password": "tu_contraseña"
 }
 ```
 
-Ejemplo de JSON para crear una reseña (el `libro` debe ser un ID existente):
+La respuesta trae `access` y `refresh`. Para crear, editar o borrar, usá el valor de `access` en **Authorization → Bearer Token**. No hace falta iniciar sesión para hacer consultas `GET`.
+
+Por ejemplo, para crear una reseña, hacé un `POST` a `/api/resenas/` con el token y este JSON. El número de `libro` tiene que ser el ID de un libro existente:
 
 ```json
 {
@@ -83,16 +78,14 @@ Ejemplo de JSON para crear una reseña (el `libro` debe ser un ID existente):
 }
 ```
 
-La puntuación permitida va de 1 a 5. Al consultar libros, cada objeto incluye su lista `resenas`.
+La puntuación va de 1 a 5. Después podés hacer un `GET` a `/api/libros/1/` para ver el libro y sus reseñas.
 
-`disponible` puede omitirse al crear; su valor predeterminado es `true`. Django REST Framework ofrece una interfaz navegable para probar los endpoints desde el navegador. También se pueden usar Postman, Bruno o Thunder Client, enviando `Content-Type: application/json` en las solicitudes con cuerpo.
+## Subir cambios a GitHub
 
-## Subir el proyecto a GitHub
-
-Para publicar cambios en el repositorio existente, desde esta carpeta ejecutá:
+Desde la carpeta del proyecto, ejecutá:
 
 ```bash
 git add .
-git commit -m "Agregar ViewSets, permisos y autenticacion JWT"
+git commit -m "Actualizar README"
 git push
 ```
