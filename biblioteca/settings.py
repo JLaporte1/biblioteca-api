@@ -1,8 +1,12 @@
 """Configuración del proyecto Biblioteca API."""
 from pathlib import Path
+from secrets import token_urlsafe
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = "django-insecure-cambiar-antes-de-publicar"
+SECRET_KEY_FILE = BASE_DIR / ".django_secret"
+if not SECRET_KEY_FILE.exists():
+    SECRET_KEY_FILE.write_text(token_urlsafe(50), encoding="utf-8")
+SECRET_KEY = SECRET_KEY_FILE.read_text(encoding="utf-8").strip()
 DEBUG = True
 ALLOWED_HOSTS = []
 
@@ -53,3 +57,13 @@ USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
+    ],
+}
